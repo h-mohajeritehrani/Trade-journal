@@ -1,14 +1,11 @@
-Trade Journal V5.1 PWA
+Trade Journal V5.3 PWA
 
-New in V5.1:
-- Setup Manager: add/remove active setup choices
-- Setup dropdown in Journal
-- Historical setup analytics remain even if removed from active choices
-- Per-setup Trades, Win Rate, Net P&L, Expectancy (Avg R), Profit Factor, Max Drawdown, and evidence status
-- Existing V5 trades/account remain compatible because storage keys are preserved
+New in V5.3:
+- Symbol Manager: add/remove active symbol suggestions
+- Smart symbol autocomplete remains available in Journal
+- Removing a symbol does NOT delete or modify historical trades
+- Existing V5.2 localStorage keys are preserved, so current data remains compatible
+- Service-worker cache bumped for a clean update
 
-Deploy the CONTENTS of this folder to the SAME Netlify project to update the existing app.
-Important: use the same site/domain so localStorage data remains available. Export a JSON backup before redeploying.
-
-
-V5.2: Setup Manager with no hard-coded personal setup names; symbol autocomplete remembers symbols locally and suggests them while typing.
+Deploy these files to the SAME GitHub Pages repository/domain.
+Before updating, Export Backup JSON is recommended.

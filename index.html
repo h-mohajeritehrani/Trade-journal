@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#07111f">
 <link rel="manifest" href="manifest.webmanifest">
-<title>Trade Journal V5.2 PWA</title>
+<title>Trade Journal V5.3 PWA</title>
 <style>
 :root{
  --bg:#06101c;--bg2:#091727;--card:#0d1a2a;--card2:#0a1522;--line:#213750;
@@ -63,7 +63,7 @@ canvas{width:100%;height:260px;display:block}
 <body>
 <div class="app">
   <div class="top">
-    <div><div class="brand">Trade Journal V5.2</div><div class="sub">PWA • Local-first • Mobile & Desktop</div></div>
+    <div><div class="brand">Trade Journal V5.3</div><div class="sub">PWA • Local-first • Mobile & Desktop</div></div>
     <div class="status" id="storageStatus">Ready</div>
   </div>
 
@@ -141,6 +141,12 @@ canvas{width:100%;height:260px;display:block}
   </section>
 
   <section id="setups" class="view">
+    <div class="card">
+      <div class="cardhead"><h3>Symbol Manager</h3><span class="hint">Add once • smart suggestions in Journal</span></div>
+      <div class="note">نمادها را اینجا مدیریت کن. حذف یک نماد فقط آن را از لیست پیشنهادهای آینده برمی‌دارد و هیچ معامله تاریخی حذف یا تغییر نمی‌کند.</div>
+      <div class="setupManager"><input id="newSymbol" autocomplete="off" placeholder="e.g. BTC/USDT"><button class="btn primary" id="addSymbolBtn">+ Add Symbol</button></div>
+      <div id="symbolChips" class="setupChips"></div>
+    </div>
     <div class="card">
       <div class="cardhead"><h3>Setup Manager</h3><span class="hint">Add once • choose in Journal</span></div>
       <div class="note">ستاپ‌ها را یک‌بار اینجا تعریف کن. معاملات قبلی حذف نمی‌شوند؛ اگر یک ستاپ را از لیست انتخاب‌ها برداری، آمار تاریخی آن همچنان باقی می‌ماند.</div>

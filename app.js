@@ -150,9 +150,25 @@ function val(x){return x==null?"—":x;}
 function normalizeSymbol(v){return String(v||"").trim().toUpperCase();}
 function refreshSymbolList(){
   var dl=$("symbolList"); if(!dl)return;
-  var all=symbols.slice(); trades.forEach(function(t){var x=normalizeSymbol(t.symbol);if(x&&all.indexOf(x)<0)all.push(x);});
-  all.sort();
+  var all=symbols.map(normalizeSymbol).filter(function(x,i,a){return x&&a.indexOf(x)===i;}).sort();
   dl.innerHTML=all.map(function(x){return "<option value='"+escapeHtml(x)+"'></option>";}).join("");
+}
+function addSymbol(){
+  var n=normalizeSymbol($("newSymbol").value); if(!n)return;
+  if(symbols.map(normalizeSymbol).indexOf(n)>=0){alert("This symbol already exists.");return;}
+  symbols.push(n); $("newSymbol").value=""; persist(); refreshSymbolList(); renderSymbols();
+}
+function removeSymbol(name){
+  var n=normalizeSymbol(name);
+  if(!confirm("Remove "+n+" from future suggestions? Historical trades will stay unchanged."))return;
+  symbols=symbols.filter(function(x){return normalizeSymbol(x)!==n;});
+  persist(); refreshSymbolList(); renderSymbols();
+}
+function renderSymbols(){
+  var box=$("symbolChips"); if(!box)return;
+  var all=symbols.map(normalizeSymbol).filter(function(x,i,a){return x&&a.indexOf(x)===i;}).sort();
+  box.innerHTML=all.map(function(x){return "<span class='chip'>"+escapeHtml(x)+" <button data-rmsymbol='"+encodeURIComponent(x)+"' title='Remove from suggestions'>×</button></span>";}).join("") || "<span class='hint'>No saved symbols yet.</span>";
+  document.querySelectorAll("[data-rmsymbol]").forEach(function(b){b.onclick=function(){removeSymbol(decodeURIComponent(this.getAttribute("data-rmsymbol")));};});
 }
 function refreshSetupSelect(){
   var sel=$("setup"); if(!sel)return; var current=sel.value;
@@ -187,7 +203,7 @@ function drawLine(c,data){var o=prepCanvas(c),ctx=o.ctx,w=o.w,h=o.h;ctx.clearRec
  if(data.length<2)return;var mn=Math.min.apply(null,data),mx=Math.max.apply(null,data);if(mx===mn)mx=mn+1;ctx.strokeStyle="#6d78ff";ctx.lineWidth=3;ctx.beginPath();data.forEach(function(v,i){var x=30+i*(w-45)/(data.length-1),y=20+(mx-v)*(h-40)/(mx-mn);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);});ctx.stroke();}
 function drawBars(c,data){var o=prepCanvas(c),ctx=o.ctx,w=o.w,h=o.h;ctx.clearRect(0,0,w,h);var max=Math.max(1,Math.max.apply(null,data.map(function(v){return Math.abs(v);})));var mid=h/2;ctx.strokeStyle="#5b6d82";ctx.beginPath();ctx.moveTo(30,mid);ctx.lineTo(w-10,mid);ctx.stroke();if(!data.length)return;var bw=Math.max(3,(w-50)/data.length*.6);data.forEach(function(v,i){var x=35+i*(w-45)/data.length,hh=Math.abs(v)/max*(h*.38);ctx.fillStyle=v>=0?"#22d394":"#ff647c";ctx.fillRect(x,v>=0?mid-hh:mid,bw,hh);});}
 function renderDashboard(){var s=stats();$("dashMetrics").innerHTML=metric("Balance",money(s.bal))+metric("Net P&L",money(s.net),s.net>=0?"pos":"neg")+metric("Win Rate",s.wr.toFixed(1)+"%")+metric("Profit Factor",s.pf===Infinity?"∞":s.pf.toFixed(2))+metric("Avg R",s.avgR.toFixed(2)+"R")+metric("Max DD",money(-s.maxDD),"neg")+metric("Trades",s.total)+metric("Fees",money(s.fees),"gold");drawCharts();}
-function renderAll(){refreshSymbolList();refreshSetupSelect();renderTrades();renderStatement();renderSetups();renderDashboard();}
+function renderAll(){refreshSymbolList();renderSymbols();refreshSetupSelect();renderTrades();renderStatement();renderSetups();renderDashboard();}
 function loadAccountForm(){
  $("accountName").value=account.name||"";$("startingBalance").value=account.startingBalance;$("currency").value=account.currency;$("accountType").value=account.type;$("startDate").value=account.startDate||"";$("defaultFeeRate").value=account.feeRate||0.005;
 }
@@ -196,14 +212,14 @@ function saveAccount(){
  persist();$("feeRate").value=account.feeRate;recalcForm();renderAll();flash("accountFlash","Account settings saved ✓");
 }
 function download(name,text,type){var blob=new Blob([text],{type:type||"text/plain"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;a.click();setTimeout(function(){URL.revokeObjectURL(url);},500);}
-function exportJSON(){download("Trade_Journal_V5_2_Backup.json",JSON.stringify({version:"5.2",account:account,trades:trades,setups:setups,symbols:symbols},null,2),"application/json");}
+function exportJSON(){download("Trade_Journal_V5_3_Backup.json",JSON.stringify({version:"5.3",account:account,trades:trades,setups:setups,symbols:symbols},null,2),"application/json");}
 function csvCell(x){x=x==null?"":String(x);return '"'+x.replace(/"/g,'""')+'"';}
 function exportCSV(){var head=["Date","Market","Symbol","Side","Setup","Entry","Exit","Stop","Target","Risk","Quantity","Fee Rate %","Fees","Gross P&L","Net P&L","Planned RR","Realized R","Plan","Notes"];var rows=[head].concat(trades.map(function(t){return [t.date,t.market,t.symbol,t.side,t.setup,t.entry,t.exit,t.stop,t.target,t.risk,t.quantity,t.feeRate,t.fees,t.grossPnl,t.pnl,t.plannedRR,t.realizedR,t.plan,t.notes];}));download("Trade_Journal_V5.csv",rows.map(function(r){return r.map(csvCell).join(",");}).join("\n"),"text/csv");}
 function importJSON(file){var r=new FileReader();r.onload=function(){try{var d=JSON.parse(r.result);if(d.account)account=Object.assign(account,d.account);if(Array.isArray(d.trades))trades=d.trades;if(Array.isArray(d.setups))setups=d.setups;if(Array.isArray(d.symbols))symbols=d.symbols;trades.forEach(function(t){var x=normalizeSymbol(t.symbol);if(x&&symbols.indexOf(x)<0)symbols.push(x);});persist();loadAccountForm();resetTradeForm();renderAll();alert("Backup imported.");}catch(e){alert("Invalid backup file.");}};r.readAsText(file);}
 function bind(){
  document.querySelectorAll(".tab").forEach(function(b){b.onclick=function(){var v=this.getAttribute("data-view");document.querySelectorAll(".tab").forEach(function(x){x.classList.remove("active");});document.querySelectorAll(".view").forEach(function(x){x.classList.remove("active");});this.classList.add("active");$(v).classList.add("active");if(v==="dashboard")setTimeout(drawCharts,50);};});
  ["entry","exit","stop","target","riskValue","feeRate"].forEach(function(id){$(id).addEventListener("input",recalcForm);});$("side").addEventListener("change",recalcForm);$("riskType").addEventListener("change",recalcForm);
- $("saveTradeBtn").onclick=saveTrade;$("addSetupBtn").onclick=addSetup;$("newSetup").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addSetup();}});$("cancelEditBtn").onclick=resetTradeForm;$("saveAccountBtn").onclick=saveAccount;$("exportJson").onclick=exportJSON;$("exportCsv").onclick=exportCSV;
+ $("saveTradeBtn").onclick=saveTrade;$("addSymbolBtn").onclick=addSymbol;$("newSymbol").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addSymbol();}});$("addSetupBtn").onclick=addSetup;$("newSetup").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addSetup();}});$("cancelEditBtn").onclick=resetTradeForm;$("saveAccountBtn").onclick=saveAccount;$("exportJson").onclick=exportJSON;$("exportCsv").onclick=exportCSV;
  $("importJson").onchange=function(){if(this.files&&this.files[0])importJSON(this.files[0]);};
  $("clearAll").onclick=function(){if(confirm("Delete ALL trades?")){trades=[];persist();renderAll();}};
  window.addEventListener("resize",function(){if($("dashboard").classList.contains("active"))drawCharts();});
