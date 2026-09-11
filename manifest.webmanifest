@@ -1,11 +1,11 @@
 {
-  "name": "Trade Journal V5.1",
+  "name": "Trade Journal V6.0 Cloud Sync",
   "short_name": "TradeJournal",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#06101c",
   "theme_color": "#07111f",
-  "description": "Local-first trading journal PWA with automatic risk, fee, P&L and R calculations.",
+  "description": "Local-first trading journal PWA with optional secure Supabase cloud sync across phone and desktop.",
   "icons": [
     {
       "src": "icon.svg",

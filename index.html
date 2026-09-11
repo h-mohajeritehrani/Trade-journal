@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#07111f">
 <link rel="manifest" href="manifest.webmanifest">
-<title>Trade Journal V5.3 PWA</title>
+<title>Trade Journal V6 Cloud Sync PWA</title>
 <style>
 :root{
  --bg:#06101c;--bg2:#091727;--card:#0d1a2a;--card2:#0a1522;--line:#213750;
@@ -53,17 +53,19 @@ canvas{width:100%;height:260px;display:block}
 .filelabel{display:inline-flex;align-items:center}
 .filelabel input{display:none}
 .saveflash{display:none;margin-top:8px;background:#09251d;border:1px solid #1c6a4c;color:#87e8bd;padding:9px;border-radius:10px;font-size:11px}
+
+.cloudGrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.cloudActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.cloudStatus{padding:10px 12px;border-radius:11px;border:1px solid #29415e;background:#081522;color:#c8d3df;font-size:11px;line-height:1.7}.cloudStatus.ok{border-color:#1c6a4c;color:#87e8bd;background:#09251d}.cloudStatus.warn{border-color:#745923;color:#ffd978;background:#241d0b}.cloudStatus.err{border-color:#65313d;color:#ff9bad;background:#2b1117}.small{font-size:10px;color:var(--muted);line-height:1.7}.pwWrap{position:relative}.pwToggle{position:absolute;left:8px;top:29px;border:0;background:transparent;color:var(--muted);font-size:11px;cursor:pointer}
 @media(max-width:760px){
  .grid{grid-template-columns:1fr 1fr}.metrics{grid-template-columns:1fr 1fr}.span2{grid-column:1/-1}
  .setupRow{grid-template-columns:1.4fr 1fr 1fr}.setupRow span:nth-child(n+4){display:none}.setupManager{grid-template-columns:1fr auto}
- .brand{font-size:19px}.app{padding:12px 10px 95px}
+ .brand{font-size:19px}.app{padding:12px 10px 95px}.cloudGrid{grid-template-columns:1fr}
 }
 </style>
 </head>
 <body>
 <div class="app">
   <div class="top">
-    <div><div class="brand">Trade Journal V5.3</div><div class="sub">PWA • Local-first • Mobile & Desktop</div></div>
+    <div><div class="brand">Trade Journal V6.0</div><div class="sub">PWA • Local-first • Secure Cloud Sync</div></div>
     <div class="status" id="storageStatus">Ready</div>
   </div>
 
@@ -130,6 +132,27 @@ canvas{width:100%;height:260px;display:block}
       <div id="accountFlash" class="saveflash"></div>
     </div>
     <div class="card"><div class="cardhead"><h3>Trading Statement</h3><span class="hint">Auto-calculated</span></div><div class="metrics" id="statementMetrics"></div></div>
+    <div class="card" id="cloudCard">
+      <div class="cardhead"><h3>Cloud Sync</h3><span class="hint">Phone ↔ Cloud ↔ Laptop</span></div>
+      <div class="note" style="margin-bottom:10px">اطلاعات اصلی همچنان روی دستگاه ذخیره می‌شود. وقتی وارد حساب ابری باشی، تغییرات به‌صورت خودکار Sync می‌شوند. برای امنیت فقط از Supabase <b>Publishable / anon key</b> استفاده کن؛ هرگز Service Role Key را اینجا وارد نکن.</div>
+      <div id="cloudStatus" class="cloudStatus">Cloud Sync is not configured.</div>
+      <div class="cloudGrid" style="margin-top:10px">
+        <div class="field"><label>Supabase Project URL</label><input id="cloudUrl" inputmode="url" autocomplete="off" placeholder="https://xxxx.supabase.co"></div>
+        <div class="field"><label>Publishable / anon key</label><input id="cloudKey" autocomplete="off" placeholder="sb_publishable_... or anon key"></div>
+        <div class="field"><label>Email</label><input id="cloudEmail" type="email" autocomplete="email" placeholder="you@example.com"></div>
+        <div class="field pwWrap"><label>Password</label><input id="cloudPassword" type="password" autocomplete="current-password" placeholder="Password"><button type="button" id="toggleCloudPassword" class="pwToggle">Show</button></div>
+      </div>
+      <div class="cloudActions">
+        <button class="btn ghost" id="saveCloudConfig">Save Cloud Config</button>
+        <button class="btn primary" id="cloudSignIn">Sign In</button>
+        <button class="btn ghost" id="cloudSignUp">Create Account</button>
+        <button class="btn ghost" id="cloudSyncNow">Sync Now</button>
+        <button class="btn ghost" id="cloudPull">Use Cloud Data</button>
+        <button class="btn ghost" id="cloudPush">Upload This Device</button>
+        <button class="btn danger" id="cloudSignOut">Sign Out</button>
+      </div>
+      <div class="small" style="margin-top:10px">Auto-sync uses latest-change-wins. If the same journal is edited offline on two devices before either reconnects, use “Use Cloud Data” or “Upload This Device” to choose which copy should win.</div>
+    </div>
     <div class="card"><div class="cardhead"><h3>Backup & Data</h3><span class="hint">Recommended before changing phones</span></div>
       <div class="toolbar">
         <button class="btn ghost" id="exportJson">Export Backup JSON</button>
@@ -163,6 +186,7 @@ canvas{width:100%;height:260px;display:block}
     <button class="tab" data-view="setups">Setups</button>
   </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="app.js"></script>
 </body>
 </html>

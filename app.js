@@ -2,11 +2,13 @@
 "use strict";
 function $(id){return document.getElementById(id);}
 var STORE_TRADES="tjv5_trades", STORE_ACCOUNT="tjv5_account", STORE_SETUPS="tjv5_setups", STORE_SYMBOLS="tjv5_symbols";
+var STORE_CLOUD_CONFIG="tjv6_cloud_config", STORE_LOCAL_MODIFIED="tjv6_local_modified", STORE_LAST_SYNC="tjv6_last_sync";
 var account={name:"Main Trading Account",startingBalance:1000,currency:"USD",type:"Mixed",startDate:"",feeRate:0.005};
 var trades=[];
 var setups=[];
 var symbols=[];
 var editingId=null;
+var cloudClient=null, cloudUser=null, cloudTimer=null, suppressCloudPush=false;
 
 function load(){
   try{
@@ -17,12 +19,15 @@ function load(){
     trades.forEach(function(x){if(x.setup && setups.indexOf(x.setup)<0)setups.push(x.setup);if(x.symbol && symbols.indexOf(x.symbol)<0)symbols.push(x.symbol);});
   }catch(e){$("storageStatus").textContent="Storage blocked"; console.error(e);}
 }
-function persist(){
+function persist(opts){
+  opts=opts||{};
   localStorage.setItem(STORE_ACCOUNT,JSON.stringify(account));
   localStorage.setItem(STORE_TRADES,JSON.stringify(trades));
   localStorage.setItem(STORE_SETUPS,JSON.stringify(setups));
   localStorage.setItem(STORE_SYMBOLS,JSON.stringify(symbols));
-  $("storageStatus").textContent="Saved locally";
+  if(!opts.keepModified) localStorage.setItem(STORE_LOCAL_MODIFIED,new Date().toISOString());
+  $("storageStatus").textContent=cloudUser?"Saved • syncing":"Saved locally";
+  if(!opts.skipCloud && !suppressCloudPush) scheduleCloudPush();
 }
 function money(n){
   n=Number(n)||0; var neg=n<0?"-":""; var x=Math.abs(n).toFixed(2);
@@ -212,10 +217,109 @@ function saveAccount(){
  persist();$("feeRate").value=account.feeRate;recalcForm();renderAll();flash("accountFlash","Account settings saved ✓");
 }
 function download(name,text,type){var blob=new Blob([text],{type:type||"text/plain"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;a.click();setTimeout(function(){URL.revokeObjectURL(url);},500);}
-function exportJSON(){download("Trade_Journal_V5_3_Backup.json",JSON.stringify({version:"5.3",account:account,trades:trades,setups:setups,symbols:symbols},null,2),"application/json");}
+function exportJSON(){download("Trade_Journal_V6_Backup.json",JSON.stringify({version:"6.0",account:account,trades:trades,setups:setups,symbols:symbols},null,2),"application/json");}
 function csvCell(x){x=x==null?"":String(x);return '"'+x.replace(/"/g,'""')+'"';}
-function exportCSV(){var head=["Date","Market","Symbol","Side","Setup","Entry","Exit","Stop","Target","Risk","Quantity","Fee Rate %","Fees","Gross P&L","Net P&L","Planned RR","Realized R","Plan","Notes"];var rows=[head].concat(trades.map(function(t){return [t.date,t.market,t.symbol,t.side,t.setup,t.entry,t.exit,t.stop,t.target,t.risk,t.quantity,t.feeRate,t.fees,t.grossPnl,t.pnl,t.plannedRR,t.realizedR,t.plan,t.notes];}));download("Trade_Journal_V5.csv",rows.map(function(r){return r.map(csvCell).join(",");}).join("\n"),"text/csv");}
+function exportCSV(){var head=["Date","Market","Symbol","Side","Setup","Entry","Exit","Stop","Target","Risk","Quantity","Fee Rate %","Fees","Gross P&L","Net P&L","Planned RR","Realized R","Plan","Notes"];var rows=[head].concat(trades.map(function(t){return [t.date,t.market,t.symbol,t.side,t.setup,t.entry,t.exit,t.stop,t.target,t.risk,t.quantity,t.feeRate,t.fees,t.grossPnl,t.pnl,t.plannedRR,t.realizedR,t.plan,t.notes];}));download("Trade_Journal_V6.csv",rows.map(function(r){return r.map(csvCell).join(",");}).join("\n"),"text/csv");}
 function importJSON(file){var r=new FileReader();r.onload=function(){try{var d=JSON.parse(r.result);if(d.account)account=Object.assign(account,d.account);if(Array.isArray(d.trades))trades=d.trades;if(Array.isArray(d.setups))setups=d.setups;if(Array.isArray(d.symbols))symbols=d.symbols;trades.forEach(function(t){var x=normalizeSymbol(t.symbol);if(x&&symbols.indexOf(x)<0)symbols.push(x);});persist();loadAccountForm();resetTradeForm();renderAll();alert("Backup imported.");}catch(e){alert("Invalid backup file.");}};r.readAsText(file);}
+
+function cloudSetStatus(text,kind){
+  var el=$("cloudStatus"); if(!el)return; el.textContent=text; el.className="cloudStatus"+(kind?" "+kind:"");
+}
+function getCloudConfig(){
+  var defaults={url:"https://piqdvbehnjzigciilxsp.supabase.co",key:"sb_publishable_rVSuHBx6GLdDWpZ2Tl_d0g_iDSAE9gN",email:""};
+  try{var saved=JSON.parse(localStorage.getItem(STORE_CLOUD_CONFIG)||"{}");return Object.assign({},defaults,saved);}catch(e){return defaults;}
+}
+function saveCloudConfigFromForm(){
+  var cfg={url:$("cloudUrl").value.trim().replace(/\/$/,""),key:$("cloudKey").value.trim(),email:$("cloudEmail").value.trim()};
+  if(cfg.key.toLowerCase().indexOf("service_role")>=0){alert("Never use a Service Role key in a browser app.");return false;}
+  localStorage.setItem(STORE_CLOUD_CONFIG,JSON.stringify(cfg));
+  initCloudClient(true); return true;
+}
+function fillCloudForm(){
+  var cfg=getCloudConfig(); $("cloudUrl").value=cfg.url||""; $("cloudKey").value=cfg.key||""; $("cloudEmail").value=cfg.email||"";
+}
+function statePayload(){
+  return {version:"6.0",account:account,trades:trades,setups:setups,symbols:symbols,meta:{clientUpdatedAt:localStorage.getItem(STORE_LOCAL_MODIFIED)||new Date(0).toISOString()}};
+}
+function applyCloudPayload(payload){
+  if(!payload||typeof payload!=="object")return;
+  suppressCloudPush=true;
+  if(payload.account)account=Object.assign(account,payload.account);
+  if(Array.isArray(payload.trades))trades=payload.trades;
+  if(Array.isArray(payload.setups))setups=payload.setups;
+  if(Array.isArray(payload.symbols))symbols=payload.symbols;
+  var remoteModified=payload.meta&&payload.meta.clientUpdatedAt?payload.meta.clientUpdatedAt:new Date().toISOString();
+  localStorage.setItem(STORE_LOCAL_MODIFIED,remoteModified);
+  persist({keepModified:true,skipCloud:true});
+  loadAccountForm(); resetTradeForm(); renderAll();
+  suppressCloudPush=false;
+}
+function scheduleCloudPush(){
+  if(!cloudClient||!cloudUser||!navigator.onLine)return;
+  clearTimeout(cloudTimer); cloudTimer=setTimeout(function(){cloudPush(false);},900);
+}
+async function initCloudClient(showMessage){
+  var cfg=getCloudConfig(); fillCloudForm();
+  if(!cfg.url||!cfg.key){cloudSetStatus("Cloud Sync is not configured. Save your Supabase Project URL and Publishable/anon key first.","warn");return;}
+  if(!window.supabase||!window.supabase.createClient){cloudSetStatus("Cloud library is unavailable right now. Local journal still works; reconnect to the internet and reload for sync.","warn");return;}
+  try{
+    cloudClient=window.supabase.createClient(cfg.url,cfg.key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+    var res=await cloudClient.auth.getSession(); cloudUser=res.data&&res.data.session?res.data.session.user:null;
+    cloudClient.auth.onAuthStateChange(function(event,session){cloudUser=session?session.user:null;updateCloudUi();if(cloudUser&&(event==="SIGNED_IN"||event==="TOKEN_REFRESHED"))setTimeout(autoCloudSync,0);});
+    updateCloudUi(); if(cloudUser) await autoCloudSync(); else if(showMessage) cloudSetStatus("Cloud configured. Sign in or create an account.","warn");
+  }catch(e){cloudSetStatus("Cloud configuration error: "+(e.message||e),"err");}
+}
+function updateCloudUi(){
+  if(!cloudClient){cloudSetStatus("Cloud Sync is not configured.","warn");return;}
+  if(!cloudUser){cloudSetStatus("Cloud configured • Signed out","warn");return;}
+  var last=localStorage.getItem(STORE_LAST_SYNC); cloudSetStatus("Signed in as "+(cloudUser.email||"user")+(last?" • Last sync "+new Date(last).toLocaleString():" • Ready to sync"),"ok");
+}
+async function cloudSignUp(){
+  if(!saveCloudConfigFromForm())return; var email=$("cloudEmail").value.trim(),password=$("cloudPassword").value;
+  if(!email||password.length<6){alert("Enter an email and a password of at least 6 characters.");return;}
+  cloudSetStatus("Creating cloud account…");
+  try{var r=await cloudClient.auth.signUp({email:email,password:password});if(r.error)throw r.error;if(r.data&&r.data.session){cloudUser=r.data.session.user;await autoCloudSync();}else cloudSetStatus("Account created. Check your email for the Supabase confirmation link, then Sign In.","warn");}catch(e){cloudSetStatus("Sign-up failed: "+(e.message||e),"err");}
+}
+async function cloudSignIn(){
+  if(!saveCloudConfigFromForm())return; var email=$("cloudEmail").value.trim(),password=$("cloudPassword").value;
+  if(!email||!password){alert("Enter email and password.");return;}
+  cloudSetStatus("Signing in…");
+  try{var r=await cloudClient.auth.signInWithPassword({email:email,password:password});if(r.error)throw r.error;cloudUser=r.data.user;await autoCloudSync();}catch(e){cloudSetStatus("Sign-in failed: "+(e.message||e),"err");}
+}
+async function cloudSignOut(){if(!cloudClient)return;try{await cloudClient.auth.signOut();cloudUser=null;updateCloudUi();}catch(e){cloudSetStatus("Sign-out failed: "+(e.message||e),"err");}}
+async function fetchCloudState(){
+  if(!cloudClient||!cloudUser)throw new Error("Sign in first.");
+  var r=await cloudClient.from("trade_journal_state").select("payload,updated_at").eq("user_id",cloudUser.id).maybeSingle();
+  if(r.error)throw r.error; return r.data||null;
+}
+async function cloudPush(manual){
+  if(!cloudClient||!cloudUser){if(manual)cloudSetStatus("Sign in first.","warn");return;}
+  if(!navigator.onLine){if(manual)cloudSetStatus("Offline. Changes are safe locally and will sync when internet returns.","warn");return;}
+  cloudSetStatus("Uploading this device…");
+  try{
+    var row={user_id:cloudUser.id,payload:statePayload(),client_updated_at:localStorage.getItem(STORE_LOCAL_MODIFIED)||new Date().toISOString()};
+    var r=await cloudClient.from("trade_journal_state").upsert(row,{onConflict:"user_id"}); if(r.error)throw r.error;
+    localStorage.setItem(STORE_LAST_SYNC,new Date().toISOString()); $("storageStatus").textContent="Synced"; updateCloudUi();
+  }catch(e){cloudSetStatus("Upload failed: "+(e.message||e),"err");}
+}
+async function cloudPull(manual){
+  if(!cloudClient||!cloudUser){if(manual)cloudSetStatus("Sign in first.","warn");return;}
+  cloudSetStatus("Downloading cloud data…");
+  try{var row=await fetchCloudState();if(!row){cloudSetStatus("No cloud copy exists yet. Use Upload This Device.","warn");return;}applyCloudPayload(row.payload);localStorage.setItem(STORE_LAST_SYNC,new Date().toISOString());updateCloudUi();}catch(e){cloudSetStatus("Download failed: "+(e.message||e),"err");}
+}
+async function autoCloudSync(){
+  if(!cloudClient||!cloudUser||!navigator.onLine)return;
+  cloudSetStatus("Checking for latest journal…");
+  try{
+    var row=await fetchCloudState();
+    if(!row){await cloudPush(false);return;}
+    var remoteTs=Date.parse(row.payload&&row.payload.meta&&row.payload.meta.clientUpdatedAt||0)||0;
+    var localTs=Date.parse(localStorage.getItem(STORE_LOCAL_MODIFIED)||0)||0;
+    if(remoteTs>localTs){applyCloudPayload(row.payload);localStorage.setItem(STORE_LAST_SYNC,new Date().toISOString());updateCloudUi();}
+    else if(localTs>remoteTs){await cloudPush(false);}else{localStorage.setItem(STORE_LAST_SYNC,new Date().toISOString());updateCloudUi();}
+  }catch(e){cloudSetStatus("Sync failed: "+(e.message||e)+" • Local data is still safe.","err");}
+}
+
 function bind(){
  document.querySelectorAll(".tab").forEach(function(b){b.onclick=function(){var v=this.getAttribute("data-view");document.querySelectorAll(".tab").forEach(function(x){x.classList.remove("active");});document.querySelectorAll(".view").forEach(function(x){x.classList.remove("active");});this.classList.add("active");$(v).classList.add("active");if(v==="dashboard")setTimeout(drawCharts,50);};});
  ["entry","exit","stop","target","riskValue","feeRate"].forEach(function(id){$(id).addEventListener("input",recalcForm);});$("side").addEventListener("change",recalcForm);$("riskType").addEventListener("change",recalcForm);
@@ -223,7 +327,11 @@ function bind(){
  $("importJson").onchange=function(){if(this.files&&this.files[0])importJSON(this.files[0]);};
  $("clearAll").onclick=function(){if(confirm("Delete ALL trades?")){trades=[];persist();renderAll();}};
  window.addEventListener("resize",function(){if($("dashboard").classList.contains("active"))drawCharts();});
+ $("saveCloudConfig").onclick=saveCloudConfigFromForm; $("cloudSignIn").onclick=cloudSignIn; $("cloudSignUp").onclick=cloudSignUp; $("cloudSignOut").onclick=cloudSignOut;
+ $("cloudSyncNow").onclick=autoCloudSync; $("cloudPull").onclick=function(){if(confirm("Replace this device journal with the cloud copy?"))cloudPull(true);}; $("cloudPush").onclick=function(){if(confirm("Replace the cloud copy with this device journal?"))cloudPush(true);};
+ $("toggleCloudPassword").onclick=function(){var p=$("cloudPassword");p.type=p.type==="password"?"text":"password";this.textContent=p.type==="password"?"Show":"Hide";};
+ window.addEventListener("online",function(){if(cloudUser)autoCloudSync();});
 }
-load();loadAccountForm();resetTradeForm();bind();renderAll();
+load();loadAccountForm();resetTradeForm();bind();renderAll();fillCloudForm();initCloudClient(false);
 if("serviceWorker" in navigator && location.protocol.indexOf("http")===0){navigator.serviceWorker.register("service-worker.js").catch(function(e){console.warn("SW",e);});}
 })();
