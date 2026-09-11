@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07111f">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Trade Journal V5.1 PWA</title>
+<style>
+:root{
+ --bg:#06101c;--bg2:#091727;--card:#0d1a2a;--card2:#0a1522;--line:#213750;
+ --txt:#f5f7fb;--muted:#91a4ba;--green:#22d394;--red:#ff647c;--blue:#6d78ff;--gold:#ffc857;
+}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(145deg,var(--bg),#0b1c34 55%,var(--bg));color:var(--txt);font-family:Tahoma,Arial,sans-serif;min-height:100vh}
+.app{max-width:1180px;margin:auto;padding:14px 14px 90px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+.brand{font-weight:900;font-size:22px}.sub{font-size:11px;color:var(--muted);margin-top:4px}
+.status{font-size:11px;color:var(--muted);border:1px solid var(--line);background:var(--card2);padding:7px 10px;border-radius:999px}
+.tabs{position:sticky;bottom:10px;z-index:20;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;background:#07111fe8;border:1px solid var(--line);backdrop-filter:blur(10px);padding:6px;border-radius:18px;margin-top:14px}
+.tab{border:0;background:transparent;color:var(--muted);padding:11px 6px;border-radius:13px;font-weight:700}
+.tab.active{background:#14243a;color:white}
+.view{display:none}.view.active{display:block}
+.card{background:rgba(13,26,42,.97);border:1px solid var(--line);border-radius:18px;padding:14px;margin:11px 0;box-shadow:0 14px 35px #0004}
+.cardhead{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:12px}
+.card h3{margin:0;font-size:15px}.hint{font-size:10px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}.span2{grid-column:span 2}.span4{grid-column:1/-1}
+.field{display:flex;flex-direction:column;gap:5px}
+label{font-size:10px;color:var(--muted)}
+input,select,textarea{width:100%;background:#081522;border:1px solid #263d58;color:#fff;padding:11px;border-radius:11px;font:inherit;outline:none}
+input:focus,select:focus,textarea:focus{border-color:#526bff}
+textarea{min-height:84px}
+.readonly{background:#0a1420;color:#c8d3df}
+.btn{border:0;border-radius:11px;padding:12px 14px;font-weight:800;cursor:pointer}
+.primary{background:linear-gradient(135deg,#765cff,#536cff);color:#fff}
+.ghost{background:#0a1522;color:#dbe6f2;border:1px solid #29415e}
+.danger{background:#2b1117;color:#ff9bad;border:1px solid #65313d}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.metric{background:#081522;border:1px solid #223950;border-radius:13px;padding:11px}
+.k{font-size:10px;color:var(--muted)}.v{direction:ltr;text-align:right;font-size:18px;font-weight:900;margin-top:5px}
+.pos{color:var(--green)}.neg{color:var(--red)}.gold{color:var(--gold)}
+.note{font-size:11px;color:#c1cfdf;line-height:1.8;border-right:3px solid var(--gold);background:#081522;padding:10px;border-radius:10px}
+.tablewrap{overflow:auto;border-radius:12px;border:1px solid #20364e}
+table{border-collapse:collapse;width:100%;min-width:1250px;font-size:11px;direction:ltr;background:#081522}
+th,td{padding:9px 7px;border-bottom:1px solid #20364e;text-align:center;white-space:nowrap}
+th{color:#a9bdd4;background:#0a1727;position:sticky;top:0}
+.actions{display:flex;gap:5px;justify-content:center}.mini{font-size:10px;padding:7px 9px;border-radius:8px}
+.chart{background:#081522;border:1px solid #223950;border-radius:14px;padding:10px;margin-top:10px}
+canvas{width:100%;height:260px;display:block}
+.setupRow{display:grid;grid-template-columns:1.45fr repeat(7,1fr);gap:6px;align-items:center;background:#081522;border:1px solid #20364e;border-radius:11px;padding:9px;font-size:11px;margin:7px 0}
+.setupManager{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:10px}.setupChips{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.chip{display:inline-flex;align-items:center;gap:7px;background:#081522;border:1px solid #29415e;border-radius:999px;padding:7px 10px;font-size:11px}.chip button{border:0;background:transparent;color:#ff9bad;font-weight:900;cursor:pointer}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap}
+.filelabel{display:inline-flex;align-items:center}
+.filelabel input{display:none}
+.saveflash{display:none;margin-top:8px;background:#09251d;border:1px solid #1c6a4c;color:#87e8bd;padding:9px;border-radius:10px;font-size:11px}
+@media(max-width:760px){
+ .grid{grid-template-columns:1fr 1fr}.metrics{grid-template-columns:1fr 1fr}.span2{grid-column:1/-1}
+ .setupRow{grid-template-columns:1.4fr 1fr 1fr}.setupRow span:nth-child(n+4){display:none}.setupManager{grid-template-columns:1fr auto}
+ .brand{font-size:19px}.app{padding:12px 10px 95px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div><div class="brand">Trade Journal V5.1</div><div class="sub">PWA • Local-first • Mobile & Desktop</div></div>
+    <div class="status" id="storageStatus">Ready</div>
+  </div>
+
+  <section id="dashboard" class="view active">
+    <div class="card"><div class="cardhead"><h3>Performance Dashboard</h3><span class="hint">Auto-calculated</span></div><div class="metrics" id="dashMetrics"></div></div>
+    <div class="card"><div class="cardhead"><h3>Equity Curve</h3><span class="hint">Starting balance + Net P&L</span></div><div class="chart"><canvas id="equityChart" width="900" height="260"></canvas></div></div>
+    <div class="card"><div class="cardhead"><h3>P&L by Trade</h3><span class="hint">Net after fees</span></div><div class="chart"><canvas id="pnlChart" width="900" height="260"></canvas></div></div>
+  </section>
+
+  <section id="journal" class="view">
+    <div class="card">
+      <div class="cardhead"><h3 id="tradeFormTitle">ثبت معامله جدید</h3><span class="hint">All calculations are automatic</span></div>
+      <div class="note" style="margin-bottom:10px">Risk را Amount یا درصد سرمایه انتخاب کن. Quantity از Risk و فاصله Entry تا Stop Loss محاسبه می‌شود. کارمزد ورود و خروج، Gross P&L، Net P&L، Planned R:R و Realized R خودکار هستند.</div>
+      <form id="tradeForm" class="grid" onsubmit="return false;">
+        <div class="field"><label>Date</label><input type="date" id="date"></div>
+        <div class="field"><label>Market</label><select id="market"><option>Crypto</option><option>Forex</option><option>Metals/CFD</option></select></div>
+        <div class="field"><label>Symbol</label><input id="symbol" value="SUIUSDT"></div>
+        <div class="field"><label>Direction</label><select id="side"><option>Long</option><option>Short</option></select></div>
+        <div class="field span2"><label>Setup / Strategy</label><select id="setup"></select></div>
+        <div class="field"><label>Entry Price</label><input type="number" step="any" id="entry"></div>
+        <div class="field"><label>Exit Price</label><input type="number" step="any" id="exit"></div>
+        <div class="field"><label>Stop Loss</label><input type="number" step="any" id="stop"></div>
+        <div class="field"><label>Take Profit</label><input type="number" step="any" id="target"></div>
+        <div class="field"><label>Risk Type</label><select id="riskType"><option value="amount">Amount</option><option value="percent">Percent of Starting Balance</option></select></div>
+        <div class="field"><label id="riskLabel">Risk Amount</label><input type="number" step="0.01" min="0" id="riskValue" value="5"></div>
+        <div class="field"><label>Calculated Risk</label><input class="readonly" id="riskAmount" readonly></div>
+        <div class="field"><label>Quantity / Position Size</label><input class="readonly" id="quantity" readonly></div>
+        <div class="field"><label>Fee Rate / side (%)</label><input type="number" step="0.001" min="0" id="feeRate" value="0.005"></div>
+        <div class="field"><label>Total Fees</label><input class="readonly" id="fees" readonly></div>
+        <div class="field"><label>Gross P&L</label><input class="readonly" id="grossPnl" readonly></div>
+        <div class="field"><label>Net P&L</label><input class="readonly" id="netPnl" readonly></div>
+        <div class="field"><label>Planned R:R</label><input class="readonly" id="plannedRR" readonly></div>
+        <div class="field"><label>Realized R</label><input class="readonly" id="realizedR" readonly></div>
+        <div class="field"><label>Followed Plan?</label><select id="plan"><option>Yes</option><option>No</option></select></div>
+        <div class="field span4"><label>Notes</label><textarea id="notes"></textarea></div>
+        <div class="field span4"><button type="button" class="btn primary" id="saveTradeBtn">Save Trade</button></div>
+        <div class="field span4" id="cancelWrap" style="display:none"><button type="button" class="btn ghost" id="cancelEditBtn">Cancel Edit</button></div>
+      </form>
+      <div id="tradeFlash" class="saveflash"></div>
+    </div>
+
+    <div class="card">
+      <div class="cardhead"><h3>Trade History</h3><span class="hint" id="tradeCount"></span></div>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Date</th><th>Market</th><th>Symbol</th><th>Side</th><th>Setup</th><th>Entry</th><th>Exit</th><th>SL</th><th>TP</th><th>Risk</th><th>Qty</th><th>Fees</th><th>Net P&L</th><th>Planned R:R</th><th>Realized R</th><th>Plan</th><th>Actions</th></tr></thead>
+        <tbody id="tradeBody"></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <section id="statement" class="view">
+    <div class="card">
+      <div class="cardhead"><h3>Account Settings / Capital</h3><span class="hint">Set once</span></div>
+      <div class="grid">
+        <div class="field"><label>Account Name</label><input id="accountName" value="Main Trading Account"></div>
+        <div class="field"><label>Starting Balance</label><input type="number" step="0.01" min="0" id="startingBalance" value="1000"></div>
+        <div class="field"><label>Currency</label><select id="currency"><option value="USD">USD ($)</option><option value="USDT">USDT</option><option value="EUR">EUR (€)</option><option value="GBP">GBP (£)</option></select></div>
+        <div class="field"><label>Account / Market Type</label><select id="accountType"><option>Mixed</option><option>Crypto</option><option>Forex / CFD</option><option>Prop Firm</option><option>Demo</option></select></div>
+        <div class="field"><label>Tracking Start Date</label><input type="date" id="startDate"></div>
+        <div class="field"><label>Default Fee / side (%)</label><input type="number" step="0.001" min="0" id="defaultFeeRate" value="0.005"></div>
+        <div class="field"><label>Current Balance</label><input class="readonly" id="currentBalance" readonly></div>
+        <div class="field span4"><button type="button" class="btn primary" id="saveAccountBtn">Save Account Settings</button></div>
+      </div>
+      <div id="accountFlash" class="saveflash"></div>
+    </div>
+    <div class="card"><div class="cardhead"><h3>Trading Statement</h3><span class="hint">Auto-calculated</span></div><div class="metrics" id="statementMetrics"></div></div>
+    <div class="card"><div class="cardhead"><h3>Backup & Data</h3><span class="hint">Recommended before changing phones</span></div>
+      <div class="toolbar">
+        <button class="btn ghost" id="exportJson">Export Backup JSON</button>
+        <button class="btn ghost" id="exportCsv">Export CSV</button>
+        <label class="btn ghost filelabel">Import Backup<input type="file" id="importJson" accept=".json,application/json"></label>
+        <button class="btn danger" id="clearAll">Clear All Trades</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="setups" class="view">
+    <div class="card">
+      <div class="cardhead"><h3>Setup Manager</h3><span class="hint">Add once • choose in Journal</span></div>
+      <div class="note">ستاپ‌ها را یک‌بار اینجا تعریف کن. معاملات قبلی حذف نمی‌شوند؛ اگر یک ستاپ را از لیست انتخاب‌ها برداری، آمار تاریخی آن همچنان باقی می‌ماند.</div>
+      <div class="setupManager"><input id="newSetup" placeholder="مثلاً CRT یا BOS + FVG"><button class="btn primary" id="addSetupBtn">+ Add Setup</button></div>
+      <div id="setupChips" class="setupChips"></div>
+    </div>
+    <div class="card"><div class="cardhead"><h3>Setup / Strategy Analytics</h3><span class="hint">Edge evidence by setup</span></div><div id="setupList"></div></div>
+  </section>
+
+  <div class="tabs">
+    <button class="tab active" data-view="dashboard">Dashboard</button>
+    <button class="tab" data-view="journal">Journal</button>
+    <button class="tab" data-view="statement">Statement</button>
+    <button class="tab" data-view="setups">Setups</button>
+  </div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
