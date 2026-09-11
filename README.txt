@@ -9,3 +9,6 @@ New in V5.1:
 
 Deploy the CONTENTS of this folder to the SAME Netlify project to update the existing app.
 Important: use the same site/domain so localStorage data remains available. Export a JSON backup before redeploying.
+
+
+V5.2: Setup Manager with no hard-coded personal setup names; symbol autocomplete remembers symbols locally and suggests them while typing.

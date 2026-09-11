@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#07111f">
 <link rel="manifest" href="manifest.webmanifest">
-<title>Trade Journal V5.1 PWA</title>
+<title>Trade Journal V5.2 PWA</title>
 <style>
 :root{
  --bg:#06101c;--bg2:#091727;--card:#0d1a2a;--card2:#0a1522;--line:#213750;
@@ -63,7 +63,7 @@ canvas{width:100%;height:260px;display:block}
 <body>
 <div class="app">
   <div class="top">
-    <div><div class="brand">Trade Journal V5.1</div><div class="sub">PWA • Local-first • Mobile & Desktop</div></div>
+    <div><div class="brand">Trade Journal V5.2</div><div class="sub">PWA • Local-first • Mobile & Desktop</div></div>
     <div class="status" id="storageStatus">Ready</div>
   </div>
 
@@ -80,7 +80,7 @@ canvas{width:100%;height:260px;display:block}
       <form id="tradeForm" class="grid" onsubmit="return false;">
         <div class="field"><label>Date</label><input type="date" id="date"></div>
         <div class="field"><label>Market</label><select id="market"><option>Crypto</option><option>Forex</option><option>Metals/CFD</option></select></div>
-        <div class="field"><label>Symbol</label><input id="symbol" value="SUIUSDT"></div>
+        <div class="field"><label>Symbol</label><input id="symbol" list="symbolList" autocomplete="off" placeholder="e.g. BTC/USDT"><datalist id="symbolList"></datalist></div>
         <div class="field"><label>Direction</label><select id="side"><option>Long</option><option>Short</option></select></div>
         <div class="field span2"><label>Setup / Strategy</label><select id="setup"></select></div>
         <div class="field"><label>Entry Price</label><input type="number" step="any" id="entry"></div>
@@ -144,7 +144,7 @@ canvas{width:100%;height:260px;display:block}
     <div class="card">
       <div class="cardhead"><h3>Setup Manager</h3><span class="hint">Add once • choose in Journal</span></div>
       <div class="note">ستاپ‌ها را یک‌بار اینجا تعریف کن. معاملات قبلی حذف نمی‌شوند؛ اگر یک ستاپ را از لیست انتخاب‌ها برداری، آمار تاریخی آن همچنان باقی می‌ماند.</div>
-      <div class="setupManager"><input id="newSetup" placeholder="مثلاً CRT یا BOS + FVG"><button class="btn primary" id="addSetupBtn">+ Add Setup</button></div>
+      <div class="setupManager"><input id="newSetup" placeholder="نام ستاپ جدید"><button class="btn primary" id="addSetupBtn">+ Add Setup</button></div>
       <div id="setupChips" class="setupChips"></div>
     </div>
     <div class="card"><div class="cardhead"><h3>Setup / Strategy Analytics</h3><span class="hint">Edge evidence by setup</span></div><div id="setupList"></div></div>

@@ -1,10 +1,11 @@
 (function(){
 "use strict";
 function $(id){return document.getElementById(id);}
-var STORE_TRADES="tjv5_trades", STORE_ACCOUNT="tjv5_account", STORE_SETUPS="tjv5_setups";
+var STORE_TRADES="tjv5_trades", STORE_ACCOUNT="tjv5_account", STORE_SETUPS="tjv5_setups", STORE_SYMBOLS="tjv5_symbols";
 var account={name:"Main Trading Account",startingBalance:1000,currency:"USD",type:"Mixed",startDate:"",feeRate:0.005};
 var trades=[];
-var setups=["Liquidity + FVG"];
+var setups=[];
+var symbols=[];
 var editingId=null;
 
 function load(){
@@ -12,13 +13,15 @@ function load(){
     var a=localStorage.getItem(STORE_ACCOUNT); if(a) account=Object.assign(account,JSON.parse(a));
     var t=localStorage.getItem(STORE_TRADES); if(t) trades=JSON.parse(t)||[];
     var su=localStorage.getItem(STORE_SETUPS); if(su) setups=JSON.parse(su)||setups;
-    trades.forEach(function(x){if(x.setup && setups.indexOf(x.setup)<0)setups.push(x.setup);});
+    var sy=localStorage.getItem(STORE_SYMBOLS); if(sy) symbols=JSON.parse(sy)||symbols;
+    trades.forEach(function(x){if(x.setup && setups.indexOf(x.setup)<0)setups.push(x.setup);if(x.symbol && symbols.indexOf(x.symbol)<0)symbols.push(x.symbol);});
   }catch(e){$("storageStatus").textContent="Storage blocked"; console.error(e);}
 }
 function persist(){
   localStorage.setItem(STORE_ACCOUNT,JSON.stringify(account));
   localStorage.setItem(STORE_TRADES,JSON.stringify(trades));
   localStorage.setItem(STORE_SETUPS,JSON.stringify(setups));
+  localStorage.setItem(STORE_SYMBOLS,JSON.stringify(symbols));
   $("storageStatus").textContent="Saved locally";
 }
 function money(n){
@@ -83,6 +86,9 @@ function saveTrade(){
   if(!t.date||!t.symbol||!t.setup||!(t.risk>0)||t.entry===null||t.stop===null){
     alert("Date, Symbol, Setup, Entry, Stop Loss and Risk are required."); return;
   }
+  if(t.symbol && symbols.indexOf(t.symbol)<0) symbols.push(t.symbol);
+  if(t.setup && setups.indexOf(t.setup)<0) setups.push(t.setup);
+  refreshSymbolList();
   if(editingId){
     for(var i=0;i<trades.length;i++){if(String(trades[i].id)===String(editingId)){trades[i]=t;break;}}
     flash("tradeFlash","Trade updated ✓");
@@ -102,8 +108,8 @@ function deleteTrade(id){
 }
 function resetTradeForm(){
   editingId=null; $("tradeFormTitle").textContent="ثبت معامله جدید"; $("cancelWrap").style.display="none";
-  $("date").value=new Date().toISOString().slice(0,10); $("market").value="Crypto"; $("symbol").value="SUIUSDT"; $("side").value="Long";
-  refreshSetupSelect(); $("setup").value=setups[0]||""; ["entry","exit","stop","target","notes"].forEach(function(k){$(k).value="";});
+  $("date").value=new Date().toISOString().slice(0,10); $("market").value="Crypto"; $("symbol").value=""; $("side").value="Long";
+  refreshSymbolList(); refreshSetupSelect(); $("setup").value=""; ["entry","exit","stop","target","notes"].forEach(function(k){$(k).value="";});
   $("riskType").value="amount"; $("riskValue").value="5"; $("feeRate").value=account.feeRate||0.005; $("plan").value="Yes"; recalcForm();
 }
 function stats(){
@@ -140,6 +146,14 @@ function renderTrades(){
   document.querySelectorAll("[data-del]").forEach(function(b){b.onclick=function(){deleteTrade(this.getAttribute("data-del"));};});
 }
 function val(x){return x==null?"—":x;}
+
+function normalizeSymbol(v){return String(v||"").trim().toUpperCase();}
+function refreshSymbolList(){
+  var dl=$("symbolList"); if(!dl)return;
+  var all=symbols.slice(); trades.forEach(function(t){var x=normalizeSymbol(t.symbol);if(x&&all.indexOf(x)<0)all.push(x);});
+  all.sort();
+  dl.innerHTML=all.map(function(x){return "<option value='"+escapeHtml(x)+"'></option>";}).join("");
+}
 function refreshSetupSelect(){
   var sel=$("setup"); if(!sel)return; var current=sel.value;
   var all=setups.slice(); trades.forEach(function(t){if(t.setup&&all.indexOf(t.setup)<0)all.push(t.setup);});
@@ -148,7 +162,7 @@ function refreshSetupSelect(){
 }
 function escapeHtml(x){return String(x).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
 function addSetup(){var n=$("newSetup").value.trim();if(!n)return;if(setups.map(function(x){return x.toLowerCase();}).indexOf(n.toLowerCase())>=0){alert("This setup already exists.");return;}setups.push(n);$("newSetup").value="";persist();refreshSetupSelect();renderSetups();}
-function removeSetup(name){if(setups.length<=1){alert("Keep at least one active setup.");return;}setups=setups.filter(function(x){return x!==name;});persist();refreshSetupSelect();renderSetups();}
+function removeSetup(name){setups=setups.filter(function(x){return x!==name;});persist();refreshSetupSelect();renderSetups();}
 function renderSetups(){
   var map={}; trades.forEach(function(t){var k=t.setup||"Unknown"; if(!map[k])map[k]=[];map[k].push(t);});
   $("setupChips").innerHTML=setups.map(function(x){return "<span class='chip'>"+escapeHtml(x)+" <button data-rmsetup='"+encodeURIComponent(x)+"' title='Remove from choices'>×</button></span>";}).join("");
@@ -173,7 +187,7 @@ function drawLine(c,data){var o=prepCanvas(c),ctx=o.ctx,w=o.w,h=o.h;ctx.clearRec
  if(data.length<2)return;var mn=Math.min.apply(null,data),mx=Math.max.apply(null,data);if(mx===mn)mx=mn+1;ctx.strokeStyle="#6d78ff";ctx.lineWidth=3;ctx.beginPath();data.forEach(function(v,i){var x=30+i*(w-45)/(data.length-1),y=20+(mx-v)*(h-40)/(mx-mn);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);});ctx.stroke();}
 function drawBars(c,data){var o=prepCanvas(c),ctx=o.ctx,w=o.w,h=o.h;ctx.clearRect(0,0,w,h);var max=Math.max(1,Math.max.apply(null,data.map(function(v){return Math.abs(v);})));var mid=h/2;ctx.strokeStyle="#5b6d82";ctx.beginPath();ctx.moveTo(30,mid);ctx.lineTo(w-10,mid);ctx.stroke();if(!data.length)return;var bw=Math.max(3,(w-50)/data.length*.6);data.forEach(function(v,i){var x=35+i*(w-45)/data.length,hh=Math.abs(v)/max*(h*.38);ctx.fillStyle=v>=0?"#22d394":"#ff647c";ctx.fillRect(x,v>=0?mid-hh:mid,bw,hh);});}
 function renderDashboard(){var s=stats();$("dashMetrics").innerHTML=metric("Balance",money(s.bal))+metric("Net P&L",money(s.net),s.net>=0?"pos":"neg")+metric("Win Rate",s.wr.toFixed(1)+"%")+metric("Profit Factor",s.pf===Infinity?"∞":s.pf.toFixed(2))+metric("Avg R",s.avgR.toFixed(2)+"R")+metric("Max DD",money(-s.maxDD),"neg")+metric("Trades",s.total)+metric("Fees",money(s.fees),"gold");drawCharts();}
-function renderAll(){refreshSetupSelect();renderTrades();renderStatement();renderSetups();renderDashboard();}
+function renderAll(){refreshSymbolList();refreshSetupSelect();renderTrades();renderStatement();renderSetups();renderDashboard();}
 function loadAccountForm(){
  $("accountName").value=account.name||"";$("startingBalance").value=account.startingBalance;$("currency").value=account.currency;$("accountType").value=account.type;$("startDate").value=account.startDate||"";$("defaultFeeRate").value=account.feeRate||0.005;
 }
@@ -182,10 +196,10 @@ function saveAccount(){
  persist();$("feeRate").value=account.feeRate;recalcForm();renderAll();flash("accountFlash","Account settings saved ✓");
 }
 function download(name,text,type){var blob=new Blob([text],{type:type||"text/plain"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;a.click();setTimeout(function(){URL.revokeObjectURL(url);},500);}
-function exportJSON(){download("Trade_Journal_V5_Backup.json",JSON.stringify({version:"5.1",account:account,trades:trades,setups:setups},null,2),"application/json");}
+function exportJSON(){download("Trade_Journal_V5_2_Backup.json",JSON.stringify({version:"5.2",account:account,trades:trades,setups:setups,symbols:symbols},null,2),"application/json");}
 function csvCell(x){x=x==null?"":String(x);return '"'+x.replace(/"/g,'""')+'"';}
 function exportCSV(){var head=["Date","Market","Symbol","Side","Setup","Entry","Exit","Stop","Target","Risk","Quantity","Fee Rate %","Fees","Gross P&L","Net P&L","Planned RR","Realized R","Plan","Notes"];var rows=[head].concat(trades.map(function(t){return [t.date,t.market,t.symbol,t.side,t.setup,t.entry,t.exit,t.stop,t.target,t.risk,t.quantity,t.feeRate,t.fees,t.grossPnl,t.pnl,t.plannedRR,t.realizedR,t.plan,t.notes];}));download("Trade_Journal_V5.csv",rows.map(function(r){return r.map(csvCell).join(",");}).join("\n"),"text/csv");}
-function importJSON(file){var r=new FileReader();r.onload=function(){try{var d=JSON.parse(r.result);if(d.account)account=Object.assign(account,d.account);if(Array.isArray(d.trades))trades=d.trades;if(Array.isArray(d.setups)&&d.setups.length)setups=d.setups;persist();loadAccountForm();resetTradeForm();renderAll();alert("Backup imported.");}catch(e){alert("Invalid backup file.");}};r.readAsText(file);}
+function importJSON(file){var r=new FileReader();r.onload=function(){try{var d=JSON.parse(r.result);if(d.account)account=Object.assign(account,d.account);if(Array.isArray(d.trades))trades=d.trades;if(Array.isArray(d.setups))setups=d.setups;if(Array.isArray(d.symbols))symbols=d.symbols;trades.forEach(function(t){var x=normalizeSymbol(t.symbol);if(x&&symbols.indexOf(x)<0)symbols.push(x);});persist();loadAccountForm();resetTradeForm();renderAll();alert("Backup imported.");}catch(e){alert("Invalid backup file.");}};r.readAsText(file);}
 function bind(){
  document.querySelectorAll(".tab").forEach(function(b){b.onclick=function(){var v=this.getAttribute("data-view");document.querySelectorAll(".tab").forEach(function(x){x.classList.remove("active");});document.querySelectorAll(".view").forEach(function(x){x.classList.remove("active");});this.classList.add("active");$(v).classList.add("active");if(v==="dashboard")setTimeout(drawCharts,50);};});
  ["entry","exit","stop","target","riskValue","feeRate"].forEach(function(id){$(id).addEventListener("input",recalcForm);});$("side").addEventListener("change",recalcForm);$("riskType").addEventListener("change",recalcForm);

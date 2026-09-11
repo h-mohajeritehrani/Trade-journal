@@ -1,4 +1,4 @@
-const CACHE="trade-journal-v5-1-cache-1";
+const CACHE="trade-journal-v5-2-1-cache-1";
 const ASSETS=["./","./index.html","./app.js","./manifest.webmanifest","./icon.svg"];
 self.addEventListener("install",e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)));self.skipWaiting();});
 self.addEventListener("activate",e=>{e.waitUntil(self.clients.claim());});
